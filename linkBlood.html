@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>blood strike</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .input-area {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52,152,219,0.2);
+    }
+    button#add {
+      padding: 0 20px;
+      font-size: 16px;
+      background: #2ecc71;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button#add:hover {
+      background: #27ae60;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .item {
+      background: white;
+      padding: 14px 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.25s;
+      cursor: pointer;
+      user-select: none;
+    }
+    .item.copied {
+      background: #e8f5e9;
+      border-left: 5px solid #27ae60;
+      transform: scale(1.02);
+    }
+    .text {
+      flex: 1;
+      word-break: break-all;
+      margin-right: 12px;
+    }
+    .status {
+      font-size: 0.9em;
+      color: #27ae60;
+      font-weight: 600;
+      min-width: 110px;
+      text-align: right;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .item.copied .status {
+      opacity: 1;
+    }
+    .empty {
+      text-align: center;
+      color: #777;
+      padding: 60px 0;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>ลิ้งค์ไก่Blood</h1>
+  
+  <div class="input-area">
+    <input type="text" id="input" placeholder="วางลิงก์ หรือพิมพ์ข้อความ..." autocomplete="off"/>
+    <button id="add">เพิ่ม</button>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+  const list = document.getElementById('list');
+  const input = document.getElementById('input');
+  const addBtn = document.getElementById('add');
+
+  // โหลดข้อมูลเก่าจาก localStorage (ถ้ามี)
+  let items = JSON.parse(localStorage.getItem('quickCopyItems')) || [];
+
+  function save() {
+    localStorage.setItem('quickCopyItems', JSON.stringify(items));
+  }
+
+  function render() {
+    list.innerHTML = '';
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty">ยังไม่มีข้อความ</div>';
+      return;
+    }
+
+    items.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'item';
+      if (item.copied) div.classList.add('copied');
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'text';
+      textSpan.textContent = item.text;
+
+      const status = document.createElement('span');
+      status.className = 'status';
+      status.textContent = 'คัดลอกแล้ว!';
+
+      div.appendChild(textSpan);
+      div.appendChild(status);
+
+      // คลิก → คัดลอก + ลบทันทีหลังจากคัดลอกเสร็จ
+      div.addEventListener('click', () => {
+        navigator.clipboard.writeText(item.text).then(() => {
+          // แสดงสถานะชั่วครู่ แล้วลบ
+          div.classList.add('copied');
+          
+          setTimeout(() => {
+            // ลบออกจาก array
+            items.splice(index, 1);
+            save();
+            render();
+          }, 800);  // รอให้เห็น "คัดลอกแล้ว!" ประมาณ 0.8 วินาที
+        }).catch(err => {
+          console.error('คัดลอกไม่ได้:', err);
+          alert('คัดลอกไม่ได้ กรุณาลองใหม่');
+        });
+      });
+
+      // Double click → เปิดลิงก์ (ถ้าเป็น URL) โดยไม่ลบ
+      let clickCount = 0;
+      let timer;
+      div.addEventListener('click', (e) => {
+        // ถ้าเป็น double click จริง ๆ ให้เปิดลิงก์ก่อน แล้วค่อยจัดการ single click
+        clickCount++;
+        if (clickCount === 1) {
+          timer = setTimeout(() => {
+            // single click logic (คัดลอกแล้วลบ) อยู่ด้านบนแล้ว
+            clickCount = 0;
+          }, 300);
+        } else if (clickCount === 2) {
+          clearTimeout(timer);
+          if (isProbablyUrl(item.text)) {
+            window.open(item.text, '_blank', 'noopener,noreferrer');
+          }
+          clickCount = 0;
+          // ไม่ลบเมื่อ double click
+        }
+      });
+
+      list.appendChild(div);
+    });
+  }
+
+  function isProbablyUrl(str) {
+    return /^(https?:\/\/|www\.)[^\s/\( .?#].[^\s]* \)/i.test(str) ||
+           (str.includes('.') && !str.includes(' ') && str.length > 8);
+  }
+
+  // เพิ่มรายการ
+  function addItem() {
+    const val = input.value.trim();
+    if (!val) return;
+    
+    items.unshift({ text: val, copied: false });
+    input.value = '';
+    save();
+    render();
+  }
+
+  addBtn.addEventListener('click', addItem);
+  input.addEventListener('keypress', e => {
+    if (e.key === 'Enter') addItem();
+  });
+
+  // โหลดครั้งแรก
+  render();
+</script>
+
+</body>
+</html>
