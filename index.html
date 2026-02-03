@@ -15,7 +15,17 @@
     h1 {
       text-align: center;
       color: #2c3e50;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+    }
+    .stats {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #555;
+      font-size: 0.98em;
+      font-weight: 500;
+    }
+    .stats strong {
+      color: #2c3e50;
     }
     .container {
       max-width: 600px;
@@ -102,6 +112,10 @@
 <div class="container">
   <h1>ลิ้งค์ไก่Blood</h1>
   
+  <div class="stats">
+    มี <strong id="currentCount">0</strong> ลิ้งค์
+  </div>
+
   <div class="input-area">
     <input type="text" id="input" placeholder="วางลิงก์ หรือพิมพ์ข้อความ..." autocomplete="off"/>
     <button id="add">เพิ่ม</button>
@@ -115,15 +129,21 @@
   const input = document.getElementById('input');
   const addBtn = document.getElementById('add');
 
-  // โหลดข้อมูลเก่าจาก localStorage (ถ้ามี)
+  // โหลดข้อมูล
   let items = JSON.parse(localStorage.getItem('quickCopyItems')) || [];
 
   function save() {
     localStorage.setItem('quickCopyItems', JSON.stringify(items));
   }
 
+  function updateCount() {
+    document.getElementById('currentCount').textContent = items.length;
+  }
+
   function render() {
     list.innerHTML = '';
+    updateCount();
+
     if (items.length === 0) {
       list.innerHTML = '<div class="empty">ยังไม่มีข้อความ</div>';
       return;
@@ -145,18 +165,18 @@
       div.appendChild(textSpan);
       div.appendChild(status);
 
-      // คลิก → คัดลอก + ลบทันทีหลังจากคัดลอกเสร็จ
-      div.addEventListener('click', () => {
+      // คลิกเดียว → คัดลอกแล้วลบ
+      div.addEventListener('click', (e) => {
+        if (e.detail === 2) return; // ป้องกัน double-click ซ้อน
+
         navigator.clipboard.writeText(item.text).then(() => {
-          // แสดงสถานะชั่วครู่ แล้วลบ
           div.classList.add('copied');
           
           setTimeout(() => {
-            // ลบออกจาก array
             items.splice(index, 1);
             save();
             render();
-          }, 800);  // รอให้เห็น "คัดลอกแล้ว!" ประมาณ 0.8 วินาที
+          }, 800);
         }).catch(err => {
           console.error('คัดลอกไม่ได้:', err);
           alert('คัดลอกไม่ได้ กรุณาลองใหม่');
@@ -164,23 +184,9 @@
       });
 
       // Double click → เปิดลิงก์ (ถ้าเป็น URL) โดยไม่ลบ
-      let clickCount = 0;
-      let timer;
-      div.addEventListener('click', (e) => {
-        // ถ้าเป็น double click จริง ๆ ให้เปิดลิงก์ก่อน แล้วค่อยจัดการ single click
-        clickCount++;
-        if (clickCount === 1) {
-          timer = setTimeout(() => {
-            // single click logic (คัดลอกแล้วลบ) อยู่ด้านบนแล้ว
-            clickCount = 0;
-          }, 300);
-        } else if (clickCount === 2) {
-          clearTimeout(timer);
-          if (isProbablyUrl(item.text)) {
-            window.open(item.text, '_blank', 'noopener,noreferrer');
-          }
-          clickCount = 0;
-          // ไม่ลบเมื่อ double click
+      div.addEventListener('dblclick', () => {
+        if (isProbablyUrl(item.text)) {
+          window.open(item.text, '_blank', 'noopener,noreferrer');
         }
       });
 
@@ -189,16 +195,16 @@
   }
 
   function isProbablyUrl(str) {
-    return /^(https?:\/\/|www\.)[^\s/\( .?#].[^\s]* \)/i.test(str) ||
+    return /^(https?:\/\/|www\.)[^\s/\( .?#].[^\s]*$/i.test(str) ||
            (str.includes('.') && !str.includes(' ') && str.length > 8);
   }
 
-  // เพิ่มรายการ
   function addItem() {
     const val = input.value.trim();
     if (!val) return;
     
     items.unshift({ text: val, copied: false });
+    
     input.value = '';
     save();
     render();
