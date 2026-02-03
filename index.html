@@ -15,17 +15,7 @@
     h1 {
       text-align: center;
       color: #2c3e50;
-      margin-bottom: 8px;
-    }
-    .stats {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #555;
-      font-size: 0.98em;
-      font-weight: 500;
-    }
-    .stats strong {
-      color: #2c3e50;
+      margin-bottom: 10px;
     }
     .container {
       max-width: 600px;
@@ -82,10 +72,17 @@
       border-left: 5px solid #27ae60;
       transform: scale(1.02);
     }
+    .number {
+      font-weight: bold;
+      color: #e74c3c;
+      min-width: 35px;
+      text-align: right;
+      margin-right: 12px;
+      font-size: 1.1em;
+    }
     .text {
       flex: 1;
       word-break: break-all;
-      margin-right: 12px;
     }
     .status {
       font-size: 0.9em;
@@ -112,10 +109,6 @@
 <div class="container">
   <h1>ลิ้งค์ไก่Blood</h1>
   
-  <div class="stats">
-    มี <strong id="currentCount">0</strong> ลิ้งค์
-  </div>
-
   <div class="input-area">
     <input type="text" id="input" placeholder="วางลิงก์ หรือพิมพ์ข้อความ..." autocomplete="off"/>
     <button id="add">เพิ่ม</button>
@@ -129,30 +122,30 @@
   const input = document.getElementById('input');
   const addBtn = document.getElementById('add');
 
-  // โหลดข้อมูล
+  // โหลดข้อมูลเก่าจาก localStorage
   let items = JSON.parse(localStorage.getItem('quickCopyItems')) || [];
 
   function save() {
     localStorage.setItem('quickCopyItems', JSON.stringify(items));
   }
 
-  function updateCount() {
-    document.getElementById('currentCount').textContent = items.length;
-  }
-
   function render() {
     list.innerHTML = '';
-    updateCount();
-
     if (items.length === 0) {
       list.innerHTML = '<div class="empty">ยังไม่มีข้อความ</div>';
       return;
     }
 
+    // เรียงใหม่สุดอยู่บน (index 0 = ล่าสุด)
     items.forEach((item, index) => {
       const div = document.createElement('div');
       div.className = 'item';
       if (item.copied) div.classList.add('copied');
+
+      // เลขลำดับ: ใหม่สุด = เลขสูงสุด
+      const number = document.createElement('span');
+      number.className = 'number';
+      number.textContent = (items.length - index) + '  ';
 
       const textSpan = document.createElement('span');
       textSpan.className = 'text';
@@ -162,12 +155,14 @@
       status.className = 'status';
       status.textContent = 'คัดลอกแล้ว!';
 
+      div.appendChild(number);
       div.appendChild(textSpan);
       div.appendChild(status);
 
-      // คลิกเดียว → คัดลอกแล้วลบ
+      // คลิกเดียว → คัดลอก + ลบหลังแสดงสถานะ
       div.addEventListener('click', (e) => {
-        if (e.detail === 2) return; // ป้องกัน double-click ซ้อน
+        // ป้องกัน double-click ซ้อน
+        if (e.detail === 2) return;
 
         navigator.clipboard.writeText(item.text).then(() => {
           div.classList.add('copied');
@@ -195,7 +190,7 @@
   }
 
   function isProbablyUrl(str) {
-    return /^(https?:\/\/|www\.)[^\s/\( .?#].[^\s]*$/i.test(str) ||
+    return /^(https?:\/\/|www\.)[^\s/\( .?#].[^\s]* \)/i.test(str) ||
            (str.includes('.') && !str.includes(' ') && str.length > 8);
   }
 
@@ -204,7 +199,6 @@
     if (!val) return;
     
     items.unshift({ text: val, copied: false });
-    
     input.value = '';
     save();
     render();
